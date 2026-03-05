@@ -12,7 +12,7 @@ import WithdrawSection from "@/components/withdraw-section";
 import AdSessionModal from "@/components/ad-session-modal";
 import AdminPanel from "@/components/admin-panel";
 import AdBlockDetector from "@/components/ad-block-detector";
-import { LogOut, Coins, Eye, TrendingUp, Wallet, Zap, ShieldAlert, AlertCircle } from "lucide-react";
+import { LogOut, Coins, Eye, TrendingUp, Wallet, Zap, ShieldAlert, AlertCircle, Settings } from "lucide-react";
 
 interface DashboardScreenProps {
   user: User;
@@ -36,9 +36,16 @@ export default function DashboardScreen({ user, userData }: DashboardScreenProps
             <p className="text-sm text-muted-foreground">{userData.email}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" /> Salir
-        </Button>
+        <div className="flex items-center gap-2">
+          {userData.isAdmin && (
+            <div className="hidden md:flex items-center gap-1 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold border border-primary/20">
+              <ShieldAlert className="h-3 w-3" /> Admin
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" /> Salir
+          </Button>
+        </div>
       </header>
 
       <AdBlockDetector>
@@ -86,16 +93,18 @@ export default function DashboardScreen({ user, userData }: DashboardScreenProps
 
         <div className="mt-12">
           <Tabs defaultValue="earn" className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-2xl grid-cols-3">
+            <TabsList className={`mb-8 grid w-full max-w-2xl ${userData.isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="earn">
                 <Coins className="mr-2 h-4 w-4" /> Ganar
               </TabsTrigger>
               <TabsTrigger value="withdraw">
                 <Wallet className="mr-2 h-4 w-4" /> Cobrar
               </TabsTrigger>
-              <TabsTrigger value="admin">
-                <ShieldAlert className="mr-2 h-4 w-4" /> Admin
-              </TabsTrigger>
+              {userData.isAdmin && (
+                <TabsTrigger value="admin">
+                  <Settings className="mr-2 h-4 w-4" /> Panel Admin
+                </TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="earn" className="focus-visible:ring-0">
@@ -106,9 +115,11 @@ export default function DashboardScreen({ user, userData }: DashboardScreenProps
               <WithdrawSection balance={userData.balance || 0} uid={user.uid} />
             </TabsContent>
 
-            <TabsContent value="admin" className="focus-visible:ring-0">
-              <AdminPanel />
-            </TabsContent>
+            {userData.isAdmin && (
+              <TabsContent value="admin" className="focus-visible:ring-0">
+                <AdminPanel />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </AdBlockDetector>

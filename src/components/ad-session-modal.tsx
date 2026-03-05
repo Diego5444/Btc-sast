@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ExternalLink, Timer, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, ExternalLink, Timer, CheckCircle2, AlertCircle, X } from "lucide-react";
 
 interface AdSessionModalProps {
   session?: AdSession;
@@ -37,6 +37,7 @@ export default function AdSessionModal({ session }: AdSessionModalProps) {
   }, []);
 
   useEffect(() => {
+    // El tiempo avanza SOLO cuando el usuario NO está enfocado en la app (está en el anuncio)
     if (session?.active && !isFocused && timeLeft > 0) {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
@@ -141,12 +142,27 @@ export default function AdSessionModal({ session }: AdSessionModalProps) {
 
     setIsCancelling(true);
     try {
-      const sessionRef = ref(db, `users/${user.uid}/adSession`);
-      await update(sessionRef, {
-        active: false,
-        cancelled: true
+      const userRef = ref(db, `users/${user.uid}`);
+      
+      await runTransaction(userRef, (currentData) => {
+        if (!currentData) return currentData;
+        return {
+          ...currentData,
+          adsCancelled: (currentData.adsCancelled || 0) + 1,
+          adSession: {
+            ...currentData.adSession,
+            active: false,
+            cancelled: true
+          }
+        };
       });
+      
       setTimeLeft(15);
+      toast({
+        title: "Sesión Cancelada",
+        description: "Esta acción ha sido registrada en tu perfil de auditoría.",
+        variant: "destructive"
+      });
     } catch (error: any) {
       console.error(error);
     } finally {
@@ -179,10 +195,10 @@ export default function AdSessionModal({ session }: AdSessionModalProps) {
             {timeLeft > 0 ? (
               <div className="space-y-4">
                 <span className="text-5xl font-black text-primary">{timeLeft}s</span>
-                <p className="text-sm font-semibold text-muted-foreground">
+                <p className="text-sm font-semibold text-muted-foreground leading-relaxed">
                   {isFocused 
-                    ? "⚠️ Abre el anuncio para que el tiempo avance." 
-                    : "✅ ¡Excelente! Quédate en el anuncio viendo el contenido..."}
+                    ? "⚠️ HAZ CLIC ABAJO PARA ABRIR EL ANUNCIO Y QUE EL TIEMPO AVANCE" 
+                    : "✅ ¡EXCELENTE! QUÉDATE EN EL ANUNCIO VIENDO EL CONTENIDO..."}
                 </p>
                 <Progress value={progress} className="h-3" />
               </div>
@@ -190,29 +206,29 @@ export default function AdSessionModal({ session }: AdSessionModalProps) {
               <div className="space-y-2 py-4">
                 <CheckCircle2 className="mx-auto h-16 w-16 text-secondary animate-bounce" />
                 <h3 className="text-xl font-bold">¡Tiempo Completado!</h3>
-                <p className="text-sm text-muted-foreground">Ya puedes reclamar tu acreditación provisional.</p>
+                <p className="text-sm text-muted-foreground">Ya puedes volver para reclamar tu acreditación.</p>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-orange-50 p-2 rounded border border-orange-100">
-            <AlertCircle className="h-3 w-3 text-orange-600 shrink-0" />
-            <span>Recuerda: Si el anuncio no genera ingresos por falta de interacción, la recompensa será anulada en el retiro.</span>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-orange-50 p-3 rounded border border-orange-100">
+            <AlertCircle className="h-4 w-4 text-orange-600 shrink-0" />
+            <span><strong>IMPORTANTE:</strong> Si cierras esta ventana o cancelas, se registrará como "Anuncio Fallido" en tu perfil de auditoría.</span>
           </div>
 
           <div className="grid grid-cols-1 gap-3">
             {timeLeft > 0 ? (
-              <Button onClick={handleOpenAd} className="h-12 text-lg font-bold" variant="default">
-                <ExternalLink className="mr-2 h-5 w-5" /> Abrir Anuncio
+              <Button onClick={handleOpenAd} className="h-14 text-lg font-bold shadow-lg" variant="default">
+                <ExternalLink className="mr-2 h-5 w-5" /> Abrir Anuncio Ahora
               </Button>
             ) : (
-              <Button onClick={handleClaimReward} disabled={isClaiming} className="h-12 text-lg font-bold bg-secondary hover:bg-secondary/90 text-white">
-                {isClaiming ? <Loader2 className="animate-spin" /> : "Registrar Recompensa"}
+              <Button onClick={handleClaimReward} disabled={isClaiming} className="h-14 text-lg font-black bg-secondary hover:bg-secondary/90 text-white shadow-lg">
+                {isClaiming ? <Loader2 className="animate-spin" /> : "REGISTRAR RECOMPENSA"}
               </Button>
             )}
             
-            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isCancelling || isClaiming} className="text-muted-foreground hover:text-destructive">
-              {isCancelling ? "Cancelando..." : "Cancelar sesión"}
+            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isCancelling || isClaiming} className="text-muted-foreground hover:text-destructive mt-2">
+              {isCancelling ? "Cancelando..." : "Cancelar sesión (Registrar fallo)"}
             </Button>
           </div>
         </div>

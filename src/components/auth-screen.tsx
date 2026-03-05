@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -8,9 +9,8 @@ import {
   browserLocalPersistence 
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { ref, set, serverTimestamp } from "firebase/database";
+import { ref, set, update, serverTimestamp } from "firebase/database";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -27,18 +27,35 @@ export default function AuthScreen() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      // Intentar obtener IP para auditoría
+      let userIp = "Unknown";
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        userIp = ipData.ip;
+      } catch (e) {
+        console.warn("No se pudo obtener IP");
+      }
+
       await setPersistence(auth, browserLocalPersistence);
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { user } = await signInWithEmailAndPassword(auth, email, password);
+        await update(ref(db, `users/${user.uid}`), {
+          lastIp: userIp,
+          lastLogin: serverTimestamp()
+        });
       } else {
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
-        // Inicializar nodo del usuario en RTDB
         await set(ref(db, `users/${user.uid}`), {
           email,
           balance: 0,
           adsWatched: 0,
+          adsCancelled: 0,
           dailyAdsCount: 0,
           lastReset: 0,
+          isAdmin: false,
+          isBlocked: false,
+          lastIp: userIp,
           createdAt: serverTimestamp(),
         });
       }
@@ -78,7 +95,7 @@ export default function AuthScreen() {
                 <input 
                   id="email" 
                   type="email" 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                   placeholder="nombre@ejemplo.com" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -90,7 +107,7 @@ export default function AuthScreen() {
                 <input 
                   id="password" 
                   type="password" 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                   placeholder="••••••••" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
@@ -99,7 +116,7 @@ export default function AuthScreen() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-12 font-bold" disabled={isLoading}>
                 {isLoading ? "Procesando..." : (isLogin ? (
                   <><LogIn className="mr-2 h-4 w-4" /> Entrar</>
                 ) : (
