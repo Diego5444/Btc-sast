@@ -1,17 +1,22 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle, ShieldAlert, RefreshCcw, Globe } from "lucide-react";
+import { AlertCircle, ShieldAlert, RefreshCcw, Globe, ShieldCheck, UserCog } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
-export default function AdBlockDetector({ children }: { children: React.ReactNode }) {
+interface AdBlockDetectorProps {
+  children: React.ReactNode;
+  isAdmin?: boolean;
+}
+
+export default function AdBlockDetector({ children, isAdmin }: AdBlockDetectorProps) {
   const [detectionState, setDetectionState] = useState<{ 
     blocked: boolean; 
     reason: 'adblock' | 'vpn' | null;
     loading: boolean;
   }>({ blocked: false, reason: null, loading: true });
+  const [bypassed, setBypassed] = useState(false);
 
   const checkAnomalies = async () => {
     let isBlocked = false;
@@ -35,7 +40,7 @@ export default function AdBlockDetector({ children }: { children: React.ReactNod
     // 2. Detección por Red (Google Ads)
     if (!isBlocked) {
       try {
-        const response = await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+        await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
           method: 'HEAD',
           mode: 'no-cors',
           cache: 'no-store',
@@ -48,13 +53,6 @@ export default function AdBlockDetector({ children }: { children: React.ReactNod
 
     // 3. Detección Heurística de VPN/Proxy
     if (!isBlocked) {
-      // Comparar zona horaria del navegador con el idioma
-      // Los usuarios de VPN a menudo tienen discrepancias
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const locale = navigator.language;
-      
-      // Heurística básica: Si el usuario usa VPN, a veces el timezone y la latencia son sospechosos
-      // Intentar detectar si el usuario está en Brave con escudos
       if ((navigator as any).brave && await (navigator as any).brave.isBrave()) {
         isBlocked = true;
         reason = 'adblock';
@@ -70,7 +68,7 @@ export default function AdBlockDetector({ children }: { children: React.ReactNod
     return () => clearInterval(interval);
   }, []);
 
-  if (detectionState.loading) {
+  if (detectionState.loading || bypassed) {
     return <>{children}</>;
   }
 
@@ -105,9 +103,27 @@ export default function AdBlockDetector({ children }: { children: React.ReactNod
             </AlertDescription>
           </Alert>
 
-          <Button size="lg" className="w-full h-14 text-xl font-black shadow-lg" onClick={() => window.location.reload()}>
-            <RefreshCcw className="mr-2 h-6 w-6" /> Verificar de Nuevo
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button size="lg" className="w-full h-14 text-xl font-black shadow-lg" onClick={() => window.location.reload()}>
+              <RefreshCcw className="mr-2 h-6 w-6" /> Verificar de Nuevo
+            </Button>
+
+            {isAdmin && (
+              <div className="pt-4 border-t mt-4">
+                <p className="text-xs font-bold text-primary uppercase mb-3 flex items-center justify-center gap-2">
+                  <ShieldCheck className="h-4 w-4" /> Eres Administrador
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="w-full h-12 font-bold border-primary text-primary hover:bg-primary/5"
+                  onClick={() => setBypassed(true)}
+                >
+                  <UserCog className="mr-2 h-5 w-5" /> Ignorar y Entrar como Admin
+                </Button>
+              </div>
+            )}
+          </div>
           
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">
             Sistema de Auditoría Anti-Fraude v2.0

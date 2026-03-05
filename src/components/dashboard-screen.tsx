@@ -1,9 +1,10 @@
-
 "use client";
 
+import { useState } from "react";
 import { User } from "firebase/auth";
 import { UserData } from "@/app/page";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { ref, update } from "firebase/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +13,7 @@ import WithdrawSection from "@/components/withdraw-section";
 import AdSessionModal from "@/components/ad-session-modal";
 import AdminPanel from "@/components/admin-panel";
 import AdBlockDetector from "@/components/ad-block-detector";
+import { useToast } from "@/hooks/use-toast";
 import { LogOut, Coins, Eye, TrendingUp, Wallet, Zap, ShieldAlert, AlertCircle, Settings } from "lucide-react";
 
 interface DashboardScreenProps {
@@ -20,6 +22,8 @@ interface DashboardScreenProps {
 }
 
 export default function DashboardScreen({ user, userData }: DashboardScreenProps) {
+  const { toast } = useToast();
+  
   const handleLogout = () => auth.signOut();
 
   return (
@@ -48,7 +52,7 @@ export default function DashboardScreen({ user, userData }: DashboardScreenProps
         </div>
       </header>
 
-      <AdBlockDetector>
+      <AdBlockDetector isAdmin={userData.isAdmin}>
         <div className="grid gap-6 md:grid-cols-3">
           <Card className="bg-primary text-primary-foreground shadow-xl shadow-primary/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
